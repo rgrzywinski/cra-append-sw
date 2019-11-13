@@ -49,6 +49,16 @@ program
  * @returns {Promise}
  */
 function compile(entry) {
+  // copy all 'REACT_APP_*' env vars into an env object (that will be passed to webpack)
+  // CHECK: confirm that JSON.stringify() mirror's the default approach CRA uses to that
+  //        the use will match
+  const env = Object.keys(process.env)
+                    .filter(key => !!key.match(/^REACT_APP_/))
+                    .reduce((o, key) => {
+                      o[`process.env.${key}`] = JSON.stringify(process.env[key]);
+                      return o;
+                    }, {});
+
   const compiler = webpack({
     mode: program.mode === "dev" ? "development" : "production",
     entry: [entry],
@@ -81,6 +91,8 @@ function compile(entry) {
       ]
     },
     plugins: [
+      // default to any 'REACT_APP_*' env variables and override with any .env vars
+      new webpack.DefinePlugin(env),
       new Dotenv({
         path: program.env, // Path to .env file (this is the default)
         safe: false, // load .env.example (defaults to "false" which does not use dotenv-safe)
