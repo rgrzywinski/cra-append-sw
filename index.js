@@ -6,6 +6,7 @@ const Dotenv = require("dotenv-webpack");
 const program = require("commander");
 const path = require("path");
 
+const BUILD_FCM_FILE_PATH = "build/firebase-messaging-sw.js";
 const BUILD_SW_FILE_PATH = "build/service-worker.js";
 const BUNDLE_FILE_NAME = "bundle.js";
 
@@ -19,6 +20,11 @@ program
     "-e, --env [path]",
     "path to environment variables files [./.env]",
     "./.env"
+  )
+  .option(
+    "-t, --type <type>",
+    "output type [sw|fcm]",
+    /^(sw|fcm)$/i
   )
   .option(
     "-m, --mode <mode>",
@@ -146,7 +152,7 @@ function read(entry) {
 }
 
 /**
- * Append custonm code to exisitng ServiceWorker
+ * Append custom code to exisitng ServiceWorker or replace it entirely
  *
  * @param {String} code
  * @returns {Promise}
@@ -159,13 +165,14 @@ function append(code, file) {
     const filename = path.basename(file);
     return writeFile(code, `build/${filename}`);
   } else if (program.mode === "replace") {
-    const filename = path.basename(file);
-    return writeFile(code, BUILD_SW_FILE_PATH);
+    const filename = (program.type === "fcm") ? BUILD_FCM_FILE_PATH : BUILD_SW_FILE_PATH/*default*/;
+    return writeFile(code, filename);
   } else {
-    // Append to "build/service-worker.js"
+    // Append to file based on 'type'
+    const filename = (program.type === "fcm") ? BUILD_FCM_FILE_PATH : BUILD_SW_FILE_PATH/*default*/;
     return new Promise((resolve, reject) => {
-      // Read exisitng SW file
-      fs.readFile(BUILD_SW_FILE_PATH, "utf8", (error, data) => {
+      // Read exisitng file
+      fs.readFile(filename, "utf8", (error, data) => {
         if (error) {
           reject(error);
         }
@@ -173,8 +180,8 @@ function append(code, file) {
         // append custom code
         const result = data + code;
 
-        // Write modified SW file
-        fs.writeFile(BUILD_SW_FILE_PATH, result, "utf8", error => {
+        // Write modified file
+        fs.writeFile(filename, result, "utf8", error => {
           if (error) {
             reject(error);
           }
